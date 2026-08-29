@@ -61,7 +61,7 @@ pipeline {
             }
         }
         
-        stage("SonarQube: Code Quality Gates"){
+       stage("SonarQube: Code Quality Gates"){
             steps{
                 script{
                     sonarqube_code_quality()
@@ -69,7 +69,7 @@ pipeline {
             }
         }
         
-        stage('Exporting environment variables') {
+   /*     stage('Exporting environment variables') {
             parallel{
                 stage("Backend env setup"){
                     steps {
@@ -89,19 +89,20 @@ pipeline {
                             }
                         }
                     }
-                }
+                } 
             }
         }
+        */
         
         stage("Docker: Build Images"){
             steps{
                 script{
                         dir('backend'){
-                            docker_build("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","trainwithshubham")
+                            docker_build("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","onkar2003")
                         }
                     
                         dir('frontend'){
-                            docker_build("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","trainwithshubham")
+                            docker_build("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","onkar2003")
                         }
                 }
             }
@@ -110,8 +111,8 @@ pipeline {
         stage("Docker: Push to DockerHub"){
             steps{
                 script{
-                    docker_push("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","trainwithshubham") 
-                    docker_push("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","trainwithshubham")
+                    docker_push("wanderlust-backend-beta","${params.BACKEND_DOCKER_TAG}","onkar2003") 
+                    docker_push("wanderlust-frontend-beta","${params.FRONTEND_DOCKER_TAG}","onkar2003")
                 }
             }
         }
