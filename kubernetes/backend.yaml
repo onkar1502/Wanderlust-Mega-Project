@@ -6,21 +6,38 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: backend
   template:
     metadata:
-      name: backend
       labels:
         app: backend
     spec:
       containers:
         - name: backend
-          image: trainwithshubham/wanderlust-backend-beta:v2.1
+          image: onkar2003/wanderlust-backend-beta:${BACKEND_DOCKER_TAG}
           ports:
             - containerPort: 8080
+          env:
+            - name: FRONTEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: FRONTEND_URL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -28,11 +45,10 @@ metadata:
   name: backend-service
   namespace: wanderlust
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: backend
   ports:
     - port: 8080
       targetPort: 8080
       protocol: TCP
-      nodePort: 31100
