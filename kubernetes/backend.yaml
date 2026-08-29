@@ -26,6 +26,51 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: FRONTEND_URL
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: MONGODB_URI
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: REDIS_URL
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: PORT
+            - name: ACCESS_COOKIE_MAXAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: ACCESS_COOKIE_MAXAGE
+            - name: ACCESS_TOKEN_EXPIRES_IN
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: ACCESS_TOKEN_EXPIRES_IN
+            - name: REFRESH_COOKIE_MAXAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: REFRESH_COOKIE_MAXAGE
+            - name: REFRESH_TOKEN_EXPIRES_IN
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: REFRESH_TOKEN_EXPIRES_IN
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: NODE_ENV
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: JWT_SECRET
           livenessProbe:
             httpGet:
               path: /health
@@ -38,6 +83,7 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 10
+
 ---
 apiVersion: v1
 kind: Service
