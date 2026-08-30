@@ -6,7 +6,12 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 2   # run at least 2 pods for availability
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: frontend
@@ -17,7 +22,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: onkar2003/wanderlust-frontend-beta:${FRONTEND_DOCKER_TAG}
+          image: onkar1502/wanderlust-frontend:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5173
           env:
@@ -30,13 +36,13 @@ spec:
             httpGet:
               path: /
               port: 5173
-            initialDelaySeconds: 10
-            periodSeconds: 30
+            initialDelaySeconds: 15
+            periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /
               port: 5173
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
 
 ---
@@ -46,10 +52,11 @@ metadata:
   name: frontend-service
   namespace: wanderlust
 spec:
-  type: ClusterIP   # internal stable DNS, no NodePort/IP hacks
+  type: NodePort
   selector:
     app: frontend
   ports:
     - port: 5173
       targetPort: 5173
+      nodePort: 30080
       protocol: TCP

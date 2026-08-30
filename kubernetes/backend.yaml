@@ -6,7 +6,12 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 3
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: backend
@@ -17,7 +22,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: onkar2003/wanderlust-backend-beta:${BACKEND_DOCKER_TAG}
+          image: onkar1502/wanderlust-backend:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
@@ -75,13 +81,13 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 30
+            initialDelaySeconds: 15
+            periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
 
 ---
