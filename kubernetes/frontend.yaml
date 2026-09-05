@@ -22,10 +22,17 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: onkar1502/wanderlust-frontend:1.0.0
-          imagePullPolicy: IfNotPresent
+          image: onkar2003/wanderlust-frontend:1.0.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 5173
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           env:
             - name: VITE_API_PATH
               valueFrom:
@@ -36,13 +43,13 @@ spec:
             httpGet:
               path: /
               port: 5173
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /
               port: 5173
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 10
 
 ---
@@ -51,12 +58,14 @@ kind: Service
 metadata:
   name: frontend-service
   namespace: wanderlust
+  labels:
+    app: frontend
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: frontend
   ports:
-    - port: 5173
+    - name: http
+      port: 5173
       targetPort: 5173
-      nodePort: 30080
       protocol: TCP

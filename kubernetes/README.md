@@ -1,192 +1,117 @@
-# Wanderlust Deployment on Kubernetes
+# Wanderlust Kubernetes Manifests & Architecture
 
-### In this project, we will learn about how to deploy wanderlust application on Kubernetes.
+This directory contains the production-ready declarative Kubernetes manifests for Wanderlust, managed via **GitOps with Argo CD** and exposed via **NGINX Ingress Controller + LoadBalancer**.
 
-### Pre-requisites to implement this project:
--  Create 2 AWS EC2 instance (Ubuntu) with instance type t2.medium and root volume 29GB.
--  Setup <a href="https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/kubeadm.md"><u> Kubeadm </a></u>
+---
 
-#
-## Steps for Kubernetes deployment:
+## 1. Kubernetes Architecture & Networking
 
-1) Become root user :
-```bash
-sudo su
+All hardcoded VM IPs have been replaced with **stable Kubernetes internal DNS service names** and domain-level ingress routing.
+
+```
+                                [Client Browser / Internet]
+                                             │
+                                             ▼
+                          [Cloud LoadBalancer (AWS NLB/ELB)]
+                                             │
+                                             ▼
+                         [NGINX Ingress Controller (Port 80/443)]
+                         (Reads ingress.yaml via ingressClassName)
+                                  │                     │
+                    ┌─────────────┘                     └─────────────┐
+                    ▼                                                 ▼
+             Path: /api                                            Path: /
+    [backend-service (ClusterIP:8080)]             [frontend-service (ClusterIP:5173)]
+                    │                                                 │
+                    ▼                                                 ▼
+       [backend-deployment (2 Pods)]                     [frontend-deployment (2 Pods)]
+          │                     │
+          ▼                     ▼
+[mongo-service (ClusterIP:27017)]  [redis-service (ClusterIP:6379)]
+          │                                  │
+          ▼                                  ▼
+[mongo-deployment (1 Pod + PVC)]     [redis-deployment (1 Pod)]
 ```
 
-#
-2) Clone code from remote repository (GitHub) :
-```bash
-git clone -b devops https://github.com/DevMadhup/wanderlust.git
-```
+---
 
-#
-3) Verify nodes are in ready state or not :
-```bash
-kubectl get nodes
-```
-![Alt text](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/nodes.png)
+## 2. Manifest Inventory
 
-#
-4) Create kubernetes namespace :
+| Manifest | Kind | Description | Service Type / Ports |
+| :--- | :--- | :--- | :--- |
+| `frontend.yaml` | `Deployment`, `Service` | React Vite frontend application (2 replicas, rolling update) | `ClusterIP` (Port 5173) |
+| `backend.yaml` | `Deployment`, `Service` | Node.js Express backend API (2 replicas, rolling update) | `ClusterIP` (Port 8080) |
+| `mongodb.yaml` | `Deployment`, `Service` | MongoDB database instance | `ClusterIP` (Port 27017) |
+| `redis.yaml` | `Deployment`, `Service` | Redis caching instance | `ClusterIP` (Port 6379) |
+| `persistentVolume.yaml` | `PersistentVolume` | Local or EBS PV storage definition | 5Gi storage |
+| `persistentVolumeClaim.yaml` | `PersistentVolumeClaim` | PVC claimed by MongoDB deployment | 5Gi storage |
+| `configmaps.yaml` | `ConfigMap` | Non-sensitive configs (`MONGODB_URI`, `REDIS_URL`, `PORT`, `FRONTEND_URL`) using internal DNS | N/A |
+| `secrets.yaml` | `Secret` | Sensitive credentials (`JWT_SECRET`) Base64 encoded | N/A |
+| `ingress.yaml` | `Ingress` | Domain routing rules mapping `/api` to backend and `/` to frontend | N/A |
+
+---
+
+## 3. Configuration Management
+
+### ConfigMaps (`configmaps.yaml`)
+- `MONGODB_URI`: Points to `mongodb://mongo-service.wanderlust.svc.cluster.local:27017/wanderlust` (internal cluster DNS name).
+- `REDIS_URL`: Points to `redis://redis-service.wanderlust.svc.cluster.local:6379`.
+- `PORT`: `8080`.
+- `FRONTEND_URL`: Ingress domain name (e.g. `http://wanderlust.example.com`).
+- `VITE_API_PATH`: Frontend API endpoint (e.g. `http://wanderlust.example.com/api`).
+
+### Secrets (`secrets.yaml`)
+- `JWT_SECRET`: Base64 encoded JSON Web Token signing key.
+- To encode new secrets:
+  ```bash
+  echo -n "your-secret-key" | base64
+  ```
+
+---
+
+## 4. Manual / Direct Deployment (Optional)
+
+If deploying manually without Argo CD:
+
 ```bash
+# 1. Create namespace
 kubectl create namespace wanderlust
-```
-![Namespace](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/namespace%20create.png)
 
-#
-5) Update kubernetes config context : 
-```bash
-kubectl config set-context --current --namespace wanderlust
-```
-![Update context](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/context%20wanderlust.png)
+# 2. Apply Storage
+kubectl apply -f persistentVolume.yaml -n wanderlust
+kubectl apply -f persistentVolumeClaim.yaml -n wanderlust
 
-#
-6) Enable DNS resolution on kubernetes cluster :
+# 3. Apply ConfigMaps and Secrets
+kubectl apply -f configmaps.yaml -n wanderlust
+kubectl apply -f secrets.yaml -n wanderlust
 
-- Check coredns pod in kube-system namespace and you will find <i> Both coredns pods are running on master node </i>
+# 4. Deploy Databases
+kubectl apply -f mongodb.yaml -n wanderlust
+kubectl apply -f redis.yaml -n wanderlust
 
-```bash
-kubectl get pods -n kube-system -o wide | grep -i core
-```
-![Alt text](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/get-coredns.png)
+# 5. Deploy Workloads
+kubectl apply -f backend.yaml -n wanderlust
+kubectl apply -f frontend.yaml -n wanderlust
 
-- Above step will run coredns pod on worker node as well for DNS resolution
-
-```bash
-kubectl edit deploy coredns -n kube-system -o yaml
-```
-<i> Make replica count from 2 to 4 </i>
-
-![replica 4](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/edit-coredns.png)
-
-#
-7) Navigate to frontend directory :
-```bash
-cd frontend
+# 6. Apply Ingress Rules
+kubectl apply -f ingress.yaml -n wanderlust
 ```
 
-#
-8) Edit .env.docker file and change the public IP Address with your worker node public IP :
-```bash
-vi .env.docker
-```
-![IP](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/frontend.env.docker.png)
+---
 
-#
-9) Build frontend docker image : 
-```bash
-docker build -t madhupdevops/frontend-wanderlust:v2.1.8 .
-```
-![Dockerfile frontend](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/docker%20frontend%20build.png)
-
-#
-10) Navigate to backend directory :
-```bash
-cd ../backend/
-```
-
-#
-11) Open .env.docker file and edit below variables : 
-
-    - MONGODB_URI: \<your-mongodb-servicename>
-    - REDIS_URL: \<your-redis-servicename>
-    - FRONTEND_URL: \<your-workernode-publicIP>
-
-> Note: To get service names, check <u>mongodb.yaml, redis.yaml</u>
-
-![Backend env file](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/backend.env.docker.png)
-
-#
-12) Build backend docker image : 
-```bash
-docker build -t madhupdevops/backend-wanderlust:v2.1.8 .
-```
-![Backend dockerfile](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/docker%20backend%20build.png)
-
-#
-13) Check docker images:
-```bash
-docker images
-```
-![docker images](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/docker%20images.png)
-
-#
-14) Login to DockerHub and push image to DockerHub
-```bash
-docker login
-```
-![docker login](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/docker%20login.png)
+## 5. Verification Commands
 
 ```bash
-docker push madhupdevops/frontend-wanderlust:v2.1.8
-docker push madhupdevops/backend-wanderlust:v2.1.8
+# Verify pods status across wanderlust namespace
+kubectl get pods -n wanderlust -o wide
+
+# Verify ClusterIP services
+kubectl get svc -n wanderlust
+
+# Verify Ingress routing
+kubectl get ingress -n wanderlust
+
+# Check application logs
+kubectl logs -l app=backend -n wanderlust --tail=50
+kubectl logs -l app=frontend -n wanderlust --tail=50
 ```
-
-#
-15) Once, Image is pushed to DockerHub, navigate to kubernetes directory
-```bash
-cd ../kubernetes
-```
-
-#
-16) Apply manifests file the below order:
-
-    - Create persistent volume :
-    ```bash
-    kubectl apply -f persistentVolume.yaml 
-    ```
-    ![Peristent volume](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/pv.png)
-
-    - Create persistent volume Claim :
-    ```bash
-    kubectl apply -f persistentVolumeClaim.yaml 
-    ```
-    ![Peristent volume Claim](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/pvc.png)
-
-    - Create MongoDB deployment and service :
-    ```bash
-    kubectl apply -f mongodb.yaml 
-    ```
-    ![MongoDb](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/mongo.png)
-
-    - Create Redis deployment and service :
-    > Note: Wait for 3-4 mins to get mongodb, redis pods and service should be up, otherwise backend-service will not connect.
-    ```bash
-    kubectl apply -f redis.yaml 
-    ```
-    ![Redis](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/redis.png)
-
-    - Create Backend deployment and service :
-    ```bash
-    kubectl apply -f backend.yaml 
-    ```
-    ![Backend](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/backend.png)
-
-    - Create Frontend deployment and service :
-    ```bash
-    kubectl apply -f frontend.yaml
-    ```
-    ![Frontend](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/frontend.png)
-
-#
-17)  Check all deployments and services :
-```bash 
-kubectl get all
-```
-![all deployments and services](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/all-deps.png)
-
-18) Check logs for all the pods :
-> Note: This is mandatory to ensure all pods and services are connected or not, if not then recreate deployments
-```bash
-kubectl logs <pod-name>
-```
-
-20) Navigate to chrome and access your application at 31000 port :
-```bash
-http://<your-workernode-publicip>:31000/
-```
-![App](https://github.com/DevMadhup/wanderlust/blob/devops/kubernetes/assets/app.png)
-
-#
-

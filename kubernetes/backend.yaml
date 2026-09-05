@@ -22,10 +22,17 @@ spec:
     spec:
       containers:
         - name: backend
-          image: onkar1502/wanderlust-backend:1.0.0
-          imagePullPolicy: IfNotPresent
+          image: onkar2003/wanderlust-backend:1.0.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           env:
             - name: FRONTEND_URL
               valueFrom:
@@ -81,13 +88,13 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 10
 
 ---
@@ -96,11 +103,14 @@ kind: Service
 metadata:
   name: backend-service
   namespace: wanderlust
+  labels:
+    app: backend
 spec:
   type: ClusterIP
   selector:
     app: backend
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
       protocol: TCP
