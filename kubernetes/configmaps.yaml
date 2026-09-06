@@ -4,8 +4,8 @@ metadata:
   name: backend-config
   namespace: wanderlust
 data:
-  # Internal Kubernetes DNS resolution (No hardcoded VM IPs)
-  MONGODB_URI: "mongodb://mongo-service.wanderlust.svc.cluster.local:27017/wanderlust"
+  # MongoDB Atlas Cloud Database Connection
+  MONGODB_URI: "mongodb+srv://onkarsonawane2003_db_user:ubCq4Y08HHvrTZcY@cluster0.be6a8ea.mongodb.net/wanderlust?retryWrites=true&w=majority&appName=Cluster0"
   REDIS_URL: "redis://redis-service.wanderlust.svc.cluster.local:6379"
   PORT: "8080"
   FRONTEND_URL: "http://ad6a7b98aab8740b28a2ef4fbec287c2-1283267638.us-east-1.elb.amazonaws.com"
