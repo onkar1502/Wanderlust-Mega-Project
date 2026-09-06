@@ -13,6 +13,11 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Build production assets into dist/
+ARG VITE_API_PATH=""
+ENV VITE_API_PATH=$VITE_API_PATH
+RUN npm run build
+
 # ------------------- Stage 2: Final Stage ------------------------------
 FROM node:21-slim
 
@@ -22,11 +27,8 @@ WORKDIR /app
 # Copy built assets and dependencies from frontend-builder stage
 COPY --from=frontend-builder /app .
 
-# Copy the .env.sample file to .env.local
-# COPY .env.docker .env.local (Env vars injected by Kubernetes ConfigMap/Secret)
-
-# Expose port 5173 for the Node.js application
+# Expose port 5173 for the application
 EXPOSE 5173
 
-# Define the default command to run the application in development mode
-CMD ["npm", "run", "dev", "--", "--host"]
+# Serve production assets on port 5173
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5173"]
