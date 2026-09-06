@@ -26,6 +26,10 @@ connectToRedis();
 app.use('/api/posts', postsRouter);
 app.use('/api/auth', authRouter);
 
+app.get('/api', (req, res) => {
+  res.status(200).json({ status: 'UP', message: 'Wanderlust Backend API is running' });
+});
+
 app.get('/', (req, res) => {
   res.send('Yay!! Backend of wanderlust prod app is now accessible');
 });
