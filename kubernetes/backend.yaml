@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: onkar2003/wanderlust-backend:1.0.0
+          image: onkar2003/wanderlust-backend:1.0.0-2
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
